@@ -45,7 +45,7 @@
 #define CSETF(p, s)             [p] = (Parameter){ { .f = s }, 1 }
 
 // enum { AtomFind, AtomGo, AtomUri, AtomLast };
-enum { AtomFind, AtomGo, AtomUri, AtomHist, AtomNav, AtomLast };
+enum { AtomFind, AtomGo, AtomUri, AtomHist, AtomNav, AtomLast }; /* 0.6 Navhist */
 
 enum {
     OnDoc   = WEBKIT_HIT_TEST_RESULT_CONTEXT_DOCUMENT,
@@ -219,15 +219,15 @@ static void clipboard(Client *c, const Arg *a);
 static void zoom(Client *c, const Arg *a);
 static void scroll(Client *c, const Arg *a);
 static void navigate(Client *c, const Arg *a);
-static void selhist(Client *c, const Arg *arg);
-static void navhist(Client *c, const Arg *arg);
+static void selhist(Client *c, const Arg *arg); /* 0.6 Navhist */
+static void navhist(Client *c, const Arg *arg); /* 0.6 Navhist */
 static void stop(Client *c, const Arg *a);
 static void toggle(Client *c, const Arg *a);
 static void togglefullscreen(Client *c, const Arg *a);
 static void togglecookiepolicy(Client *c, const Arg *a);
 static void toggleinspector(Client *c, const Arg *a);
 static void find(Client *c, const Arg *a);
-static void externalpipe(Client *c, const Arg *a);
+static void externalpipe(Client *c, const Arg *a); /* External Pipe */
 
 /* Buttons */
 static void clicknavigate(Client *c, const Arg *a, WebKitHitTestResult *h);
@@ -280,6 +280,7 @@ externalpipe_execute(char* buffer, Arg *arg) {
     signal(SIGPIPE, oldsigpipe);
 }
 
+/* ++ External Pipe */
 static void
 externalpipe_resource_done(WebKitWebResource *r, GAsyncResult *s, Arg *arg)
 {
@@ -325,6 +326,7 @@ externalpipe(Client *c, const Arg *arg)
         }
     }
 }
+/* -- External Pipe */
 
 void
 usage(void)
@@ -363,8 +365,8 @@ setup(void)
     atoms[AtomFind] = XInternAtom(dpy, "_SURF_FIND", False);
     atoms[AtomGo] = XInternAtom(dpy, "_SURF_GO", False);
     atoms[AtomUri] = XInternAtom(dpy, "_SURF_URI", False);
-    atoms[AtomHist] = XInternAtom(dpy, "_SURF_HIST", False);
-    atoms[AtomNav] = XInternAtom(dpy, "_SURF_NAV", False);
+    atoms[AtomHist] = XInternAtom(dpy, "_SURF_HIST", False); /* 0.6 Navhist */
+    atoms[AtomNav] = XInternAtom(dpy, "_SURF_NAV", False); /* 0.6 Navhist */
 
     gtk_init(NULL, NULL);
 
@@ -565,7 +567,7 @@ loaduri(Client *c, const Arg *a)
         // url = g_strdup_printf("file://%s", path);
         url = parseuri(uri);
         free(path);
-    } else if (*uri == ' ') {
+    } else if (*uri == ' ') { /* Space search */
         url = g_strdup_printf("%s%s", searchengine, uri + 1);
     } else {
         url = g_strdup_printf("http://%s", uri);
@@ -631,25 +633,22 @@ updatetitle(Client *c)
 
     gtk_window_set_title(GTK_WINDOW(c->win), geturi(c));
 
-//    if (curconfig[ShowIndicators].val.b)
-//    {
-//        gettogglestats(c);
-//        getpagestats(c);
+//  if (curconfig[ShowIndicators].val.i) {
+//      gettogglestats(c);
+//      getpagestats(c);
 //
-//        if (c->progress != 100)
-//            title = g_strdup_printf("[%i%%] %s:%s | %s",
-//                    c->progress, togglestats, pagestats, name);
-//        else
-//              title = g_strdup_printf("%s:%s | %s",
-//                    togglestats, pagestats, name);
+//      if (c->progress != 100)
+//          title = g_strdup_printf("[%i%%] %s:%s | %s",
+//                  c->progress, togglestats, pagestats, name);
+//      else
+//          title = g_strdup_printf("%s:%s | %s",
+//                  togglestats, pagestats, name);
 //
-//        gtk_window_set_title(GTK_WINDOW(c->win), title);
-//        g_free(title);
-//    }
-//    else
-//    {
-//        gtk_window_set_title(GTK_WINDOW(c->win), c->title ? c->title : "");
-//    }
+//      gtk_window_set_title(GTK_WINDOW(c->win), title);
+//      g_free(title);
+//  } else {
+//      gtk_window_set_title(GTK_WINDOW(c->win), name);
+//  }
 }
 
 void
@@ -1206,6 +1205,7 @@ processx(GdkXEvent *e, GdkEvent *event, gpointer d)
                 loaduri(c, &a);
 
                 return GDK_FILTER_REMOVE;
+            /* 0.6 Navhist */
             } else if (ev->atom == atoms[AtomNav]) {
                 a.v = getatom(c, AtomNav);
                 navhist(c, &a);
@@ -1295,7 +1295,7 @@ showview(WebKitWebView *v, Client *c)
 
     setatom(c, AtomFind, "");
     setatom(c, AtomUri, "about:blank");
-    setatom(c, AtomHist, "");
+    setatom(c, AtomHist, ""); /* 0.6 Navhist */
 }
 
 GtkWidget *
@@ -1689,6 +1689,7 @@ navigate(Client *c, const Arg *a)
         webkit_web_view_go_forward(c->view);
 }
 
+/* ++ 0.6 Navhist */
 void
 selhist(Client *c, const Arg *arg)
 {
@@ -1745,6 +1746,7 @@ navhist(Client *c, const Arg *arg) {
    Arg a = { .i = atoi(arg->v) };
    navigate(c, &a);
 }
+/* -- 0.6 Navhist */
 
 void
 stop(Client *c, const Arg *a)
@@ -1940,11 +1942,13 @@ main(int argc, char *argv[])
     if (argc > 0)
         arg.v = argv[0];
     else
+/* Homepage */
 #ifdef HOMEPAGE
         arg.v = HOMEPAGE;
 #else
         arg.v = "about:blank";
 #endif
+
 
     setup();
     c = newclient(NULL);

@@ -4,9 +4,9 @@ static char *fulluseragent = ""; /* Or override the whole user agent string */
 static char    *scriptfile = "~/.surf/script.js";
 static char      *styledir = "~/.surf/styles/";
 static char      *cachedir = "~/.surf/cache/";
-static char   *historyfile = "~/.surf/history";
-static char    *cookiefile = "/dev/null"; // No cookies?
-static char  *searchengine = "https://duckduckgo.com/?q=";
+static char   *historyfile = "~/.surf/history"; /* History */
+static char    *cookiefile = "/dev/null"; // No cookies
+static char  *searchengine = "https://duckduckgo.com/?q="; /* Spacesearch */
 
 static SearchEngine searchengines[] =
 {
@@ -14,7 +14,7 @@ static SearchEngine searchengines[] =
     {"ddg", "https://www.duckduckgo.com/?q=%s"},
 };
 
-#define HOMEPAGE "https://duckduckgo.com/"
+#define HOMEPAGE "https://duckduckgo.com/" /* Homepage */
 
 /* Webkit default features */
 static Parameter defconfig[ParameterLast] = {
@@ -36,7 +36,7 @@ static Parameter defconfig[ParameterLast] = {
     SETV(PreferredLanguages, ((char *[]){NULL })),
     SETB(RunInFullscreen,    0),
     SETB(ScrollBars,         0),
-    SETB(ShowIndicators,     0),
+    SETI(ShowIndicators,     1),
     SETB(SiteQuirks,         1),
     SETB(SpellChecking,      0),
     SETV(SpellLanguages,     ((char *[]){"en_US", NULL })),
@@ -76,6 +76,7 @@ static char *editscreen[] =
     NULL
 };
 
+/* History */
 #define SETURI(p) { \
     .v = (char *[]){ "/bin/sh", "-c", \
         "prop=\"`history_dmenu.sh`\" &&" \
@@ -84,6 +85,32 @@ static char *editscreen[] =
     } \
 }
 
+/* ? */
+#define SETPROP(p, q) {\
+        .v = (const char *[]){"/bin/sh", "-c", \
+             "prop=\"`xprop -id $2 $0 " \
+             "| sed \"s/^$0(STRING) = \\(\\\\\"\\?\\)\\(.*\\)\\1$/\\2/\" " \
+             "| xargs -0 printf %b | dmenu`\" &&" \
+             "xprop -id $2 -f $1 8s -set $1 \"$prop\"", \
+             p, q, winid, NULL \
+        } \
+}
+
+/* Bookmarks */
+// This is what bookmarks would modify SETPROPS
+// #define SETPROP(r, s, p) { \
+//         .v = (const char *[]){ "/bin/sh", "-c", \
+//              "prop=\"$(printf '%b' \"$(xprop -id $1 $2 " \
+//-             "| sed \"s/^$2(STRING) = //;s/^\\\"\\(.*\\)\\\"$/\\1/\")\" " \
+//-             "| dmenu -p \"$4\" -w $1)\" && xprop -id $1 -f $3 8s -set $3 \"$prop\"", \
+//+             "| sed \"s/^$2(STRING) = //;s/^\\\"\\(.*\\)\\\"$/\\1/\" && cat ~/.surf/bookmarks)\" " \
+//+             "| dmenu -l 10 -p \"$4\" -w $1)\" && " \
+//+             "xprop -id $1 -f $3 8s -set $3 \"$prop\"", \
+//              "surf-setprop", winid, r, s, p, NULL \
+//         } \
+// }
+
+/* Bookmarks */
 /* BM_ADD(readprop) */
 #define BM_ADD(r) {\
         .v = (const char *[]){"/bin/sh", "-c", \
@@ -95,6 +122,7 @@ static char *editscreen[] =
         } \
 }
 
+/* ? */
 #define BM_SET(p) {\
     .v = (char *[]){ "/bin/sh", "-c", \
         "prop=\"`bookmarks_dmenu.sh`\" &&" \
@@ -103,14 +131,16 @@ static char *editscreen[] =
     } \
 }
 
-#define SETPROP(p, q) {\
-        .v = (const char *[]){"/bin/sh", "-c", \
-             "prop=\"`xprop -id $2 $0 " \
-             "| sed \"s/^$0(STRING) = \\(\\\\\"\\?\\)\\(.*\\)\\1$/\\2/\" " \
-             "| xargs -0 printf %b | dmenu`\" &&" \
-             "xprop -id $2 -f $1 8s -set $1 \"$prop\"", \
-             p, q, winid, NULL \
-        } \
+
+/* 0.6 Navhist  0.6 Navhist */
+#define SELNAV { \
+   .v = (char *[]){ "/bin/sh", "-c", \
+       "prop=\"`xprop -id $0 _SURF_HIST" \
+       " | sed -e 's/^.[^\"]*\"//' -e 's/\"$//' -e 's/\\\\\\n/\\n/g'" \
+       " | dmenu -i -l 10`\"" \
+       " && xprop -id $0 -f _SURF_NAV 8s -set _SURF_NAV \"$prop\"", \
+       winid, NULL \
+   } \
 }
 
 /* DOWNLOAD(URI, referer) */
@@ -171,67 +201,75 @@ static SiteStyle styles[] = {
  * edit the CLEANMASK() macro.
  */
 static Key keys[] = {
-    /* modifier     keyval          function    arg */
-    {MOD,           GDK_KEY_g,      spawn,      SETPROP("_SURF_URI", "_SURF_GO")},
-    {MOD,           GDK_KEY_f,      spawn,      SETPROP("_SURF_FIND", "_SURF_FIND")},
-    {MOD,           GDK_KEY_slash,  spawn,      SETPROP("_SURF_FIND", "_SURF_FIND")},
- // In surf.c, I edited updatetitle() to update with the currently loaded uri
- // using _SURF_URI or _SURF_GO often gave the wrong url and I'm not sure why
- // _NET_WM_NAME is the x tag for the title of a window-manager window
-    {MOD|SHIFT,     GDK_KEY_b,      spawn,      BM_ADD("_NET_WM_NAME")},
-    {MOD,           GDK_KEY_b,      spawn,      BM_SET("_SURF_GO")},
-    {MOD,           GDK_KEY_Return, spawn,      SETURI("_SURF_GO")},
-    {0,             GDK_KEY_Escape, stop,       {0}},
-    {MOD,           GDK_KEY_c,      stop,       {0}},
+    /* modifier      keyval          function    arg */
+    {CTRL,           GDK_KEY_g,      spawn,      SETPROP("_SURF_URI", "_SURF_GO")},
+    {CTRL,           GDK_KEY_f,      spawn,      SETPROP("_SURF_FIND", "_SURF_FIND")},
+    {CTRL,           GDK_KEY_slash,  spawn,      SETPROP("_SURF_FIND", "_SURF_FIND")},
+/*  In surf.c, I edited updatetitle() to update with the currently loaded uri
+ *  _SURF_URI or _SURF_GO often gave the wrong url and I'm not sure why
+ *  _NET_WM_NAME is the x tag for the title of a window-manager window
+ */
+
+    /* Bookmarks */
+    {CTRL|SHIFT,     GDK_KEY_b,      spawn,      BM_ADD("_NET_WM_NAME")}, /* Add URI to bookmarks */
+    /* ? */
+    {CTRL,           GDK_KEY_b,      spawn,      BM_SET("_SURF_GO")}, /* Goto URI from bookmarks */
+    /* History */
+    {CTRL,           GDK_KEY_Return, spawn,      SETURI("_SURF_GO")}, /* Goto URI from history */
+    {0,              GDK_KEY_Escape, stop,       {0}},
+    {CTRL,           GDK_KEY_c,      stop,       {0}},
 
  // TODO TODO TODO
- // {CTRL,          GDK_KEY_s,      download,   {"_SURF_URI"}},
+ // {CTRL,           GDK_KEY_s,      download,   {"_SURF_URI"}}, /* ? */
 
-    {MOD|SHIFT,     GDK_KEY_r,      reload,     {.b = 1}},
-    {MOD,           GDK_KEY_r,      reload,     {.b = 0}},
+    /* Reload page & not cache */
+    {CTRL|SHIFT,     GDK_KEY_r,      reload,     {.b = 1}},
+    /* Reload page & cache (i think) */
+    {CTRL,           GDK_KEY_r,      reload,     {.b = 0}},
 
-    {MOD|SHIFT,     GDK_KEY_l,      navigate,   {.i = +1}},
-    {MOD|SHIFT,     GDK_KEY_h,      navigate,   {.i = -1}},
- // {MOD|SHIFT,     GDK_KEY_h,      selhist,    SELNAV},
+    {CTRL|SHIFT,     GDK_KEY_l,      navigate,   {.i = +1}}, /* Forward in session history */
+    {CTRL|SHIFT,     GDK_KEY_h,      navigate,   {.i = -1}}, /* Backward in session history */
+    /* ? */
+ // {CTRL|SHIFT,     GDK_KEY_h,      selhist,    SELNAV}, /* 0.6 Navhist */
 
     /* Currently we have to use scrolling steps that WebKit2GTK+ gives us
      * d: step down, u: step up, r: step right, l:step left
      * D: page down, U: page up */
-    {MOD,           GDK_KEY_h,      scroll,     {.i = 'l'}},
-    {MOD,           GDK_KEY_j,      scroll,     {.i = 'd'}},
-    {MOD,           GDK_KEY_k,      scroll,     {.i = 'u'}},
-    {MOD,           GDK_KEY_r,      scroll,     {.i = 'r'}},
-    {MOD|SHIFT,     GDK_KEY_h,      scroll,     {.i = 'L'}},
-    {MOD|SHIFT,     GDK_KEY_j,      scroll,     {.i = 'D'}},
-    {MOD|SHIFT,     GDK_KEY_k,      scroll,     {.i = 'U'}},
-    {MOD|SHIFT,     GDK_KEY_l,      scroll,     {.i = 'R'}},
+    {CTRL,           GDK_KEY_h,      scroll,     {.i = 'l'}},
+    {CTRL,           GDK_KEY_j,      scroll,     {.i = 'd'}},
+    {CTRL,           GDK_KEY_k,      scroll,     {.i = 'u'}},
+    {CTRL,           GDK_KEY_r,      scroll,     {.i = 'r'}},
+    {CTRL|SHIFT,     GDK_KEY_h,      scroll,     {.i = 'L'}},
+    {CTRL|SHIFT,     GDK_KEY_j,      scroll,     {.i = 'D'}},
+    {CTRL|SHIFT,     GDK_KEY_k,      scroll,     {.i = 'U'}},
+    {CTRL|SHIFT,     GDK_KEY_l,      scroll,     {.i = 'R'}},
 
-    {MOD,           GDK_KEY_0,      zoom,       {.f =  0.0}},
-    {MOD,           GDK_KEY_minus,  zoom,       {.f = -0.1}},
-    {MOD,           GDK_KEY_equal,  zoom,       {.f = +0.1}},
+    {CTRL,           GDK_KEY_0,      zoom,       {.f =  0.0}},
+    {CTRL,           GDK_KEY_minus,  zoom,       {.f = -0.1}},
+    {CTRL,           GDK_KEY_equal,  zoom,       {.f = +0.1}},
 
-    {MOD,           GDK_KEY_p,      clipboard,  {.b =  1}},
-    {MOD,           GDK_KEY_y,      clipboard,  {.b =  0}},
-    {MOD,           GDK_KEY_n,      find,       {.i = +1}},
-    {MOD|SHIFT,     GDK_KEY_n,      find,       {.i = -1}},
-    {MOD|SHIFT,     GDK_KEY_p,      print,      {0}},
+    {CTRL,           GDK_KEY_p,      clipboard,  {.b =  1}}, /* Load clipboard URI */
+    {CTRL,           GDK_KEY_y,      clipboard,  {.b =  0}}, /* Copy URI */
+    {CTRL,           GDK_KEY_n,      find,       {.i = +1}},
+    {CTRL|SHIFT,     GDK_KEY_n,      find,       {.i = -1}},
+    {CTRL|SHIFT,     GDK_KEY_p,      print,      {0}},
 
-    {MOD|SHIFT,     GDK_KEY_a,      togglecookiepolicy,    {0}},
-    {0,             GDK_KEY_F11,    togglefullscreen,      {0}},
-    {0,             GDK_KEY_F12,    toggleinspector,       {0}},
+    {CTRL|SHIFT,     GDK_KEY_a,      togglecookiepolicy,    {0}},
+    {0,              GDK_KEY_F11,    togglefullscreen,      {0}},
+    {0,              GDK_KEY_F12,    toggleinspector,       {0}},
 
-    {MOD|SHIFT,     GDK_KEY_c,      toggle,     {.i = CaretBrowsing}},
-    {MOD|SHIFT,     GDK_KEY_f,      toggle,     {.i = FrameFlattening}},
-    {MOD|SHIFT,     GDK_KEY_g,      toggle,     {.i = Geolocation}},
-    {MOD|SHIFT,     GDK_KEY_s,      toggle,     {.i = JavaScript}},
-    {MOD|SHIFT,     GDK_KEY_i,      toggle,     {.i = LoadImages}},
-    {MOD|SHIFT,     GDK_KEY_v,      toggle,     {.i = Plugins}},
- // {MOD|SHIFT,     GDK_KEY_b,      toggle,     {.i = ScrollBars}},
-    {MOD|SHIFT,     GDK_KEY_m,      toggle,     {.i = Style}},
+    {CTRL|SHIFT,     GDK_KEY_c,      toggle,     {.i = CaretBrowsing}},
+    {CTRL|SHIFT,     GDK_KEY_f,      toggle,     {.i = FrameFlattening}},
+    {CTRL|SHIFT,     GDK_KEY_g,      toggle,     {.i = Geolocation}},
+    {CTRL|SHIFT,     GDK_KEY_s,      toggle,     {.i = JavaScript}},
+    {CTRL|SHIFT,     GDK_KEY_i,      toggle,     {.i = LoadImages}},
+    {CTRL|SHIFT,     GDK_KEY_v,      toggle,     {.i = Plugins}},
+    {CTRL|SHIFT,     GDK_KEY_b,      toggle,     {.i = ScrollBars}},
+    {CTRL|SHIFT,     GDK_KEY_m,      toggle,     {.i = Style}},
 
-    {MOD,           GDK_KEY_d,      externalpipe, {.v = linkselect_curwin}},
-    {MOD|SHIFT,     GDK_KEY_d,      externalpipe, {.v = linkselect_newwin}},
-    {MOD,           GDK_KEY_o,      externalpipe, {.v = editscreen}},
+    {CTRL,           GDK_KEY_d,      externalpipe, {.v = linkselect_curwin}},
+    {CTRL|SHIFT,     GDK_KEY_d,      externalpipe, {.v = linkselect_newwin}},
+    {CTRL,           GDK_KEY_o,      externalpipe, {.v = editscreen}},
 
 };
 
