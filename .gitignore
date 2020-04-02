@@ -1,6 +1,7 @@
 *.[ao]
 *.orig
 *.rej
+surf
 TODO*
 LEGACY*
 FAQ*
